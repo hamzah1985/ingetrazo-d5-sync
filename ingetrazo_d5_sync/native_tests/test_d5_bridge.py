@@ -16,6 +16,54 @@ from d5_bridge import Bridge, cube_scene, triangle_buffers, transform_array, cam
 
 
 class BridgeTests(unittest.TestCase):
+    def test_degenerate_triangles_keep_valid_normals_and_uvs_aligned(self):
+        import numpy as np
+        obj = {'vertices': [[0,0,0],[1,0,0],[2,0,0],[0,1,0]],
+               'triangles': [[0,1,2],[0,1,3],[1,1,3]],
+               'normals': [[0,0,1],[0,0,1],[1,0,0],[0,1,1]],
+               'uvs': [[0,0],[1,0],[2,0],[0,1]]}
+        stats = {'skipped_degenerate_triangles': 0}
+        coords, normals, loops, _, uvs, polygons, materials = triangle_buffers(obj, stats)
+        self.assertEqual(stats['skipped_degenerate_triangles'], 2)
+        self.assertTrue(np.array_equal(coords.reshape(-1,3), [[0,0,0],[1,0,0],[0,1,0]]))
+        self.assertTrue(np.allclose(normals.reshape(-1,3), [[0,0,1],[0,0,1],[0,2**-0.5,2**-0.5]]))
+        self.assertTrue(np.array_equal(uvs.reshape(-1,2), [[0,0],[1,0],[0,1]]))
+        self.assertEqual((len(loops),len(polygons),len(materials)), (3,1,1))
+
+    def test_float32_collapsed_triangle_does_not_abort_other_geometry(self):
+        obj = {'vertices': [[100000000,0,0],[100000000.01,0,0],[100000000,1,0],
+                            [0,0,0],[1,0,0],[0,1,0]],
+               'triangles': [[0,1,2],[3,4,5]]}
+        buffers = triangle_buffers(obj)
+        self.assertEqual(len(buffers[0]), 9)
+
+    def test_all_degenerate_object_is_removed_and_can_reappear(self):
+        scene = cube_scene()
+        self.bridge.snapshot(scene)
+        degenerate = copy.deepcopy(scene)
+        degenerate['objects'][0]['triangles'] = [[0,0,0]]
+        result = self.bridge.snapshot(degenerate)
+        self.assertEqual(result['skipped_degenerate_triangles'], 1)
+        self.assertEqual(result['native_instances'], 0)
+        self.assertEqual(self.bridge.snapshot(scene)['native_instances'], 1)
+
+    def test_mixed_valid_and_degenerate_native_snapshot_still_exports(self):
+        scene = cube_scene()
+        scene['objects'][0]['triangles'].append([0,0,0])
+        result = self.bridge.snapshot(scene)
+        self.assertEqual(result['skipped_degenerate_triangles'], 1)
+        self.assertEqual(result['native_instances'], 1)
+        self.assertTrue(self.bridge.export(self.root / 'filtered.d5a')['export_success'])
+
+    def test_nonfinite_source_is_not_silently_filtered(self):
+        scene = cube_scene()
+        self.bridge.snapshot(scene)
+        previous = dict(self.bridge.hashes)
+        scene['objects'][0]['vertices'][0][0] = float('nan')
+        with self.assertRaisesRegex(ValueError, 'finite'):
+            self.bridge.snapshot(scene)
+        self.assertEqual(self.bridge.hashes, previous)
+
     def test_camera_axes_units_fov_and_projection_dispatch(self):
         from unittest.mock import Mock
         camera = {'position':[1,2,3], 'forward':[0,2,0], 'up':[0,0,1],
@@ -54,6 +102,8 @@ class BridgeTests(unittest.TestCase):
             # Three consecutive triangle vertices in centimetres. Verifies
             # fractional metre coordinates survived the native API binding.
             points = [[0,0,0],[125,125,0],[0,125,0]]
+            # The native CW serializer reverses the loop during axis conversion.
+            points.reverse()
             rotations = [points[i:]+points[:i] for i in range(3)]
             patterns = [struct.pack('<9f', *[v for p in tri for v in p]) for tri in rotations]
             self.assertTrue(any(pattern in mesh for pattern in patterns))
@@ -113,34 +163,33 @@ class BridgeTests(unittest.TestCase):
     def test_d5_transform_conversion(self):
         matrix = [[1,0,0,2.25],[0,1,0,3.5],[0,0,1,4.75],[0,0,0,1]]
         self.assertEqual(transform_array(matrix),
-                         [1,0,0,0,0,1,0,0,0,0,1,0,350,225,475,1])
+                         [1,0,0,0,0,1,0,0,0,0,1,0,225,350,475,1])
 
     def test_mesh_axes_normals_and_clockwise_winding_agree(self):
         import numpy as np
         obj = {'vertices':[[0,0,0],[2,0,0],[0,0,1]], 'triangles':[[0,1,2]]}
         coords, normals, *_ = triangle_buffers(obj)
         points = coords.reshape(-1,3)
-        self.assertEqual(points.tolist(), [[0,0,0],[0,2,0],[0,0,1]])
-        self.assertEqual(normals.reshape(-1,3).tolist(), [[-1,0,0]]*3)
-        # Outward normals agree with CW front faces in D5's left-handed axes.
+        self.assertEqual(points.tolist(), [[0,0,0],[2,0,0],[0,0,1]])
+        self.assertEqual(normals.reshape(-1,3).tolist(), [[0,-1,0]]*3)
+        # Input stays right-handed; the native SDK handles conversion.
         cross = np.cross(points[1]-points[0], points[2]-points[0])
-        self.assertLess(float(np.dot(cross, normals[:3])), 0)
+        self.assertGreater(float(np.dot(cross, normals[:3])), 0)
 
     def test_supplied_smooth_normals_survive_axes_mapping_and_native_export(self):
         import numpy as np
         obj = {'id':'curved', 'vertices':[[0,0,0],[2,0,0],[0,0,1]],
                'triangles':[[0,1,2]], 'normals':[[0,-1,1],[0,-1,1],[0,-1,0]]}
         _, normals, *_ = triangle_buffers(obj)
-        expected = [[-1/2**.5,0,1/2**.5],[-1/2**.5,0,1/2**.5],[-1,0,0]]
+        expected = [[0,-1/2**.5,1/2**.5],[0,-1/2**.5,1/2**.5],[0,-1,0]]
         self.assertTrue(np.allclose(normals.reshape(-1,3),expected))
         self.bridge.snapshot({'objects':[obj]})
         path = self.root/'smooth-normals.d5a'
         self.assertTrue(self.bridge.export(path)['export_success'])
         with zipfile.ZipFile(path) as archive:
             mesh = archive.read('1.d5mesh')
-            # The native file serializer converts the on-wire X/Y axes back;
-            # the source's tilted normal must survive instead of becoming flat.
-            self.assertTrue(struct.pack('<3f',0,-1/2**.5,1/2**.5) in mesh)
+            # Verify the SDK's final D5-axis normal, not only our input array.
+            self.assertTrue(struct.pack('<3f',-1/2**.5,0,1/2**.5) in mesh)
         previous = dict(self.bridge.hashes)
         obj['normals'][0] = [0,0,0]
         with self.assertRaisesRegex(ValueError,'nonzero'):
@@ -154,13 +203,13 @@ class BridgeTests(unittest.TestCase):
         import numpy as np
         source = [[0,-1,0,2],[1,0,0,3],[0,0,1,4],[0,0,0,1]]
         converted = np.array(transform_array(source)).reshape(4,4).T
-        # Source point (1,2,3) becomes world (0,4,7), then D5 (4,0,7).
-        point = converted @ np.array([200,100,300,1])
-        self.assertTrue(np.allclose(point, [400,0,700,1]))
+        # SDK input stays in source axes; native export checks conversion below.
+        point = converted @ np.array([100,200,300,1])
+        self.assertTrue(np.allclose(point, [0,400,700,1]))
         self.assertAlmostEqual(float(np.linalg.det(converted[:3,:3])), 1)
 
     def test_stdio_protocol_with_real_native_module(self):
-        worker = Path(__file__).with_name('d5_bridge.py')
+        worker = Path(__file__).resolve().parents[1] / 'd5_bridge.py'
         requests = [{'op': 'info'}, {'op': 'snapshot', 'scene': cube_scene(size=1.25)},
                     {'op': 'export', 'path': str(self.root / 'stdio.d5a')}, {'op': 'quit'}]
         result = subprocess.run([sys.executable, str(worker), '--stdio', '--source',
@@ -173,6 +222,45 @@ class BridgeTests(unittest.TestCase):
         self.assertTrue(all(r['ok'] for r in replies))
         self.assertFalse(replies[0]['blender_imported'])
         self.assertTrue(replies[2]['export_success'])
+
+    def test_native_output_places_rotated_mesh_in_the_camera_coordinate_frame(self):
+        import itertools
+        import numpy as np
+        obj = {'id':'native-frame-check', 'vertices':[[1,2,3],[4,5,6],[7,8,11]],
+               'triangles':[[0,1,2]], 'material_id':'probe',
+               'transform':[[0,-1,0,2],[1,0,0,3],[0,0,1,4],[0,0,0,1]]}
+        self.bridge.snapshot({'objects':[obj], 'materials':[{'id':'probe','color':'#FFFFFF'}]})
+        path = self.root/'native-coordinate-frame.d5a'
+        self.assertTrue(self.bridge.export(path)['export_success'])
+        with zipfile.ZipFile(path) as archive:
+            mesh = archive.read('1.d5mesh')
+            self.assertEqual(struct.unpack_from('<I', mesh)[0], 11, 'Update parser for this D5 mesh format')
+            node = self.bridge.identifier('node', obj['id']) + '0'*32
+            material = self.bridge.identifier('material', 'probe')
+            # D5 mesh v11: UTF-16 instance name, length-prefixed material ID,
+            # then its native float32 transform. No source-array assumptions.
+            name = (node + '_' + material).encode('utf-16-le')
+            offset = mesh.find(name)
+            self.assertGreaterEqual(offset, 0)
+            offset += len(name)
+            chars = struct.unpack_from('<I', mesh, offset)[0]
+            self.assertEqual(chars, len(material))
+            offset += 4
+            self.assertEqual(mesh[offset:offset + chars*2].decode('utf-16-le'), material)
+            native = np.array(struct.unpack_from('<16f', mesh, offset + chars*2)).reshape(4,4).T
+            swap = np.array([[0,1,0,0],[1,0,0,0],[0,0,1,0],[0,0,0,1]])
+            source = np.array(obj['transform'], dtype=float)
+            source[:3,3] *= 100
+            self.assertTrue(np.allclose(native, swap @ source @ swap, atol=2e-5))
+            expected_vertices = [[200,100,300],[500,400,600],[800,700,1100]]
+            patterns = [struct.pack('<9f', *[v for p in order for v in p])
+                        for order in itertools.permutations(expected_vertices)]
+            self.assertTrue(any(pattern in mesh for pattern in patterns), 'Native mesh axes differ from camera axes')
+            actual_world = native @ np.array([200,100,300,1])
+            camera, _, _ = camera_values({'position':[0,4,7], 'forward':[0,1,0],
+                                         'up':[0,0,1], 'horizontal_fov':60})
+            self.assertTrue(np.allclose(actual_world[:3], camera[:3], atol=2e-4),
+                            (actual_world[:3], camera[:3]))
 
 
 if __name__ == '__main__':

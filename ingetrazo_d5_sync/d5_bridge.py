@@ -38,16 +38,13 @@ def stable_id(kind, value):
 
 
 def transform_array(matrix):
-    # The generic Max mesh API receives coordinates already in D5 axes.
-    # Conjugate by the X/Y swap (S M S) so rotations stay proper rotations;
-    # BlenderAddNode's one-sided swap produces a mirrored basis on this route.
+    # D5BeginNode applies the RightZUp scene conversion itself. Supply source
+    # axes here; pre-conjugating would apply the X/Y conversion twice.
     a = [[float(v) for v in row] for row in matrix]
     if len(a) != 4 or any(len(row) != 4 for row in a):
         raise ValueError('Expected a 4x4 transform')
     if not all(math.isfinite(v) for row in a for v in row):
         raise ValueError('Transform must contain finite values')
-    order = (1, 0, 2, 3)
-    a = [[a[r][c] for c in order] for r in order]
     for i in range(3):
         a[i][3] *= 100.0
     return [a[r][c] for c in range(4) for r in range(4)]
@@ -73,7 +70,7 @@ def camera_values(camera):
     return transform, fov, width*100
 
 
-def triangle_buffers(obj):
+def triangle_buffers(obj, stats=None):
     import numpy as np
     vertices = np.asarray(obj['vertices'], dtype=np.float32)
     triangles = np.asarray(obj['triangles'], dtype=np.int32)
@@ -88,8 +85,19 @@ def triangle_buffers(obj):
     coords = vertices[triangles].reshape(-1, 3)
     normals = np.cross(coords[1::3] - coords[0::3], coords[2::3] - coords[0::3])
     lengths = np.linalg.norm(normals, axis=1)
-    if (lengths <= 1e-12).any():
-        raise ValueError('Degenerate triangle')
+    # Native buffers use float32. Imported slivers, repeated mesh indices or
+    # rounding at large coordinates can collapse individual triangles. Mask
+    # those primitives, not the entire object's valid geometry or the snapshot.
+    valid = np.isfinite(lengths) & (lengths > 1e-12)
+    skipped = int((~valid).sum())
+    if stats is not None:
+        stats['skipped_degenerate_triangles'] += skipped
+    if not valid.any():
+        return None
+    triangles = triangles[valid]
+    coords = coords.reshape(-1, 3, 3)[valid].reshape(-1, 3)
+    normals = normals[valid]
+    lengths = lengths[valid]
     if 'normals' in obj:
         supplied = np.asarray(obj['normals'], dtype=np.float32)
         if supplied.shape != vertices.shape or not np.isfinite(supplied).all():
@@ -113,11 +121,9 @@ def triangle_buffers(obj):
         uvs = uv[triangles].astype(np.float32).ravel()
     else:
         uvs = np.zeros(count * 6, dtype=np.float32)
-    # Exactly the array ordering used by the installed D5 send_mesh wrapper.
-    # Reflect positions and directions together. The resulting winding is CW
-    # in D5's left-handed axes, with normals pointing out of the source faces.
-    coords = coords[:, [1, 0, 2]]
-    normals = normals.reshape(-1, 3)[:, [1, 0, 2]].ravel()
+    # MaxAddIndexTriangles also applies the session's RightZUp conversion.
+    # Keep source positions/normals together; camera_values is a different API
+    # which expects an explicitly converted D5 pose.
     return (coords.astype(np.float32).ravel(), normals, loops, loops.copy(),
             uvs, polygon_indices, material_indices)
 
@@ -179,7 +185,8 @@ class Bridge:
         # Validate the whole incoming snapshot before modifying the native session.
         if len({str(o['id']) for o in objects}) != len(objects):
             raise ValueError('Duplicate object IDs')
-        prepared = [(o, triangle_buffers(o), transform_array(o.get('transform', IDENTITY)))
+        stats = {'skipped_degenerate_triangles': 0}
+        prepared = [(o, triangle_buffers(o, stats), transform_array(o.get('transform', IDENTITY)))
                     for o in objects]
         texture_folder = None
         if scene.get('texture_folder'):
@@ -258,6 +265,7 @@ class Bridge:
             del next_hashes[key]
         result = {'changed': changed, 'removed': len(removed),
                   'materials_changed': materials_changed, 'objects': len(next_hashes),
+                  'skipped_degenerate_triangles': stats['skipped_degenerate_triangles'],
                   'native_statistics': d.GetNodeStatics(s),
                   'native_instances': d.D5InstanceCount(s)}
         if self.connect_live and (changed or removed or materials_changed):

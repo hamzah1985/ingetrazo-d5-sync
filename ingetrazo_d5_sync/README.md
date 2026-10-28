@@ -71,6 +71,15 @@ connection handshake. It contains no user model. Mesh coordinates are converted
 from metres to centimetres; positions and normals use matching axes and proper
 object rotations. Default unpainted faces use white, non-metallic paint.
 
+Geometry and node transforms enter the native SDK in source axes; its RightZUp
+session converts them. The camera API instead receives an explicitly converted
+D5 pose. Applying the axis conversion twice to geometry previously put models
+and cameras in different coordinate frames. The correction is verified against
+actual native-export vertices and instance transforms, including a rotated and
+translated component, rather than input arrays alone. Use a new blank D5 project
+for the first test after updating, to separate older incorrect linked geometry.
+Collapsed triangles are skipped while valid geometry continues to sync.
+
 The first Connect creates `My model_d5_textures` beside `My model.igz`, even if
 there are no textures yet. Readable source images are copied there under content
 hash names; originals and old cache images are preserved. Save As or switching
@@ -95,6 +104,11 @@ The local prototype passed 21 installed-engine checks and 11 native-worker
 checks before packaging. Live geometry creation, white-paint shading and orbit,
 pan, zoom and explicit camera resend were exercised against D5. Smooth normals
 survive native export; live curved-surface appearance has not been reviewed.
+
+The subsequent coordinate-frame correction passes all 27 portable checks and
+17 native-worker checks, including the native model/camera alignment regression.
+This establishes the corrected coordinate contract; visual acceptance with each
+recipient's model remains necessary.
 
 Remaining limits include transparency/glass, back-face materials, face-me
 figures, edited-group contexts, two-point camera shift, live orthographic visual

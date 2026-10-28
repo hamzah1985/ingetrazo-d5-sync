@@ -37,7 +37,7 @@ class TestD5Conversion(unittest.TestCase):
     def test_d5_transform_conversion(self):
         matrix = [[1,0,0,2.25],[0,1,0,3.5],[0,0,1,4.75],[0,0,0,1]]
         self.assertEqual(transform_array(matrix),
-                         [1,0,0,0,0,1,0,0,0,0,1,0,350,225,475,1])
+                         [1,0,0,0,0,1,0,0,0,0,1,0,225,350,475,1])
 
 
     def test_mesh_axes_normals_and_clockwise_winding_agree(self):
@@ -45,20 +45,20 @@ class TestD5Conversion(unittest.TestCase):
         obj = {'vertices':[[0,0,0],[2,0,0],[0,0,1]], 'triangles':[[0,1,2]]}
         coords, normals, *_ = triangle_buffers(obj)
         points = coords.reshape(-1,3)
-        self.assertEqual(points.tolist(), [[0,0,0],[0,2,0],[0,0,1]])
-        self.assertEqual(normals.reshape(-1,3).tolist(), [[-1,0,0]]*3)
-        # Outward normals agree with CW front faces in D5's left-handed axes.
+        self.assertEqual(points.tolist(), [[0,0,0],[2,0,0],[0,0,1]])
+        self.assertEqual(normals.reshape(-1,3).tolist(), [[0,-1,0]]*3)
+        # Input is right-handed; native export verifies the SDK conversion.
         cross = np.cross(points[1]-points[0], points[2]-points[0])
-        self.assertLess(float(np.dot(cross, normals[:3])), 0)
+        self.assertGreater(float(np.dot(cross, normals[:3])), 0)
 
 
     def test_rotated_group_world_position_matches_camera_axes_without_mirroring(self):
         import numpy as np
         source = [[0,-1,0,2],[1,0,0,3],[0,0,1,4],[0,0,0,1]]
         converted = np.array(transform_array(source)).reshape(4,4).T
-        # Source point (1,2,3) becomes world (0,4,7), then D5 (4,0,7).
-        point = converted @ np.array([200,100,300,1])
-        self.assertTrue(np.allclose(point, [400,0,700,1]))
+        # Source point (1,2,3) becomes world (0,4,7) before SDK conversion.
+        point = converted @ np.array([100,200,300,1])
+        self.assertTrue(np.allclose(point, [0,400,700,1]))
         self.assertAlmostEqual(float(np.linalg.det(converted[:3,:3])), 1)
 
 

@@ -40,6 +40,12 @@ The demo video and the original review ZIP are in the
 
 ## Contribute
 
+The camera/model coordinate-frame fix is included on `main`. It removes a double
+axis conversion shared by the original prototype. After updating, reconnect in
+a new blank D5 project and use Sync Now. Native regression checks compare D5's
+actual exported model coordinates with the camera pose; input-array tests alone
+did not catch the original error.
+
 Fork this repository, make a focused change and open a pull request against
 `main`. See [CONTRIBUTING.md](CONTRIBUTING.md) for the development setup and
 test commands. Please include the host/D5/connector versions and reproduction

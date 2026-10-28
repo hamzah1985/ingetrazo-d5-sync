@@ -31,6 +31,9 @@ installed D5 LiveSync for Blender native module:
 ```
 
 Those checks export to temporary files and do not require a running D5 project.
+The 17 native checks include model/camera alignment against D5 mesh v11 output.
+If a connector changes that file format, update the test parser explicitly;
+do not replace the native-output check with an input-array assertion.
 For live changes, use disposable models and report what was visually verified:
 geometry updates/deletes, default white shading, camera movement, save/reconnect
 and textures. Do not claim unsupported cases are fixed based only on mocks.

@@ -15,5 +15,5 @@ for entry in manifest['files']:
     data = target.read_bytes()
     entry['bytes'] = len(data)
     entry['sha256'] = hashlib.sha256(data).hexdigest()
-path.write_text(json.dumps(manifest, indent=2), encoding='utf8')
+path.write_text(json.dumps(manifest, indent=2), encoding='utf8', newline='\n')
 print('Updated %d explicitly listed package hashes.' % len(manifest['files']))
