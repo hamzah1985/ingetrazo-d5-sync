@@ -30,6 +30,87 @@ def triangle(mesh, color=None):
     return face
 
 class TestD5SyncAdapter(unittest.TestCase):
+    def test_nested_container_paint_uses_nearest_parent(self):
+        scene = Scene()
+        parent = Group(name='Parent')
+        child = Group(name='Child')
+        leaf = Group(name='Leaf')
+        parent.material = {'color':(1,0,0)}
+        child.material = {'color':(0,0,1)}
+        triangle(leaf.mesh)
+        parent.children.append(child)
+        child.children.append(leaf)
+        scene.groups.append(parent)
+        self.assertEqual([m['color'] for m in capture_scene(scene)['materials']], ['#0000FF'])
+
+    def test_material_manifest_and_cached_image_survive_missing_original(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            project = root/'Kitchen.igz'
+            project.write_text('test document')
+            image = QImage(2,2,QImage.Format_RGB32)
+            image.fill(QColor('white'))
+            source = root/'original.png'
+            self.assertTrue(image.save(str(source)))
+            scene = Scene()
+            face = triangle(scene.loose_mesh)
+            face.attrs['texture'] = {'path':str(source),'sw':1,'sh':1}
+            folder = prepare_texture_folder(project)
+            first = capture_scene(scene, project, folder)
+            manifest = json.loads((folder/adapter.MATERIAL_CACHE).read_text(encoding='utf8'))
+            self.assertEqual(manifest['materials'][0]['diffuse_map'], Path(first['materials'][0]['diffuse_map']).name)
+            self.assertEqual(manifest['materials'][0]['color'], '#FFFFFF')
+            source.unlink()
+            reopened = capture_scene(scene, project, folder)
+            self.assertEqual(first, reopened)
+            self.assertTrue(Path(reopened['materials'][0]['diffuse_map']).is_file())
+
+    def test_same_image_from_a_new_host_cache_keeps_material_identity(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            project = root/'Kitchen.igz'
+            project.touch()
+            image = QImage(2,2,QImage.Format_RGB32)
+            image.fill(QColor('red'))
+            a,b = root/'cache-a.png',root/'cache-b.png'
+            self.assertTrue(image.save(str(a)))
+            b.write_bytes(a.read_bytes())
+            scene = Scene()
+            face = triangle(scene.loose_mesh)
+            face.attrs['texture'] = {'path':str(a),'sw':1,'sh':1}
+            folder = prepare_texture_folder(project)
+            first = capture_scene(scene,project,folder)
+            face.attrs['texture']['path'] = str(b)
+            second = capture_scene(scene,project,folder)
+            self.assertEqual(first['materials'],second['materials'])
+
+    def test_missing_image_keeps_scene_and_reports_color_fallback(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as temp:
+            project = Path(temp)/'Kitchen.igz'
+            project.touch()
+            scene = Scene()
+            face = triangle(scene.loose_mesh, (0.8,0.6,0.4))
+            face.attrs['texture'] = {'path':str(Path(temp)/'missing.png')}
+            snapshot = capture_scene(scene,project,prepare_texture_folder(project))
+            self.assertEqual(snapshot['materials'][0]['color'],'#CC9966')
+            self.assertNotIn('diffuse_map',snapshot['materials'][0])
+            self.assertEqual(len(snapshot['objects']),1)
+            self.assertEqual(len(snapshot['warnings']),1)
+
+    def test_cached_image_index_cannot_escape_companion_folder(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            folder = root/'companion'
+            folder.mkdir()
+            missing = root/'missing.png'
+            assets = {os.path.normcase(str(missing.resolve())):'../outside.png'}
+            with self.assertRaisesRegex(ValueError,'invalid image name'):
+                adapter.cache_texture(missing,folder,root/'Kitchen.igz',assets)
+
     def setUp(self):
         set_language('en')
         runtime = patch.object(adapter, 'find_worker_python', return_value=Path(sys.executable))
@@ -382,7 +463,7 @@ class TestD5SyncAdapter(unittest.TestCase):
             self.assertEqual(len(snapshot['objects'][0]['uvs']), 3)
             self.assertTrue(any(any(value != 0 for value in uv) for uv in snapshot['objects'][0]['uvs']))
             self.assertEqual(snapshot, capture_scene(scene, project, folder))
-            self.assertEqual(len(list(folder.iterdir())), 1)
+            self.assertEqual({p.name for p in folder.iterdir()}, {cached.name, adapter.MATERIAL_CACHE})
 
 
     def test_loose_geometry_and_material(self):

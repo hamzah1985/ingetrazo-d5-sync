@@ -35,6 +35,8 @@ this package. D5's connector API is private and may change between releases.
    Save As popup if the model has not been saved. Cancelling leaves sync off.
 5. In D5, open a blank test project or choose New if its connection prompt asks.
    Geometry and camera updates begin when the native connection becomes ready.
+   Startup allows three minutes for D5 to launch and the project to become ready;
+   the former 45-second limit could stop the worker before project startup finished.
 
 The toolbar adds no text labels or extra full-width row. Tooltips describe its
 buttons and connection state. Sync Now also restores the IngeTrazo camera after
@@ -71,14 +73,23 @@ connection handshake. It contains no user model. Mesh coordinates are converted
 from metres to centimetres; positions and normals use matching axes and proper
 object rotations. Default unpainted faces use white, non-metallic paint.
 
-Geometry and node transforms enter the native SDK in source axes; its RightZUp
-session converts them. The camera API instead receives an explicitly converted
-D5 pose. Applying the axis conversion twice to geometry previously put models
-and cameras in different coordinate frames. The correction is verified against
-actual native-export vertices and instance transforms, including a rotated and
-translated component, rather than input arrays alone. Use a new blank D5 project
-for the first test after updating, to separate older incorrect linked geometry.
+Meshes use the connector's `BlenderAddNode` API. Local positions and normals
+remain in source axes; the input node matrix swaps its first two columns after
+converting translation to centimetres. The native SDK produces the matching
+D5 world frame. Its internal V flip is compensated to preserve host texture
+mapping. The camera receives an explicitly converted D5 pose. Native export
+checks compare actual world positions and normals, including rotated and scaled
+components, rather than input arrays alone. Use a new blank D5 project for the
+first test after updating, to separate older linked geometry.
 Collapsed triangles are skipped while valid geometry continues to sync.
+
+The former `MaxAddIndexTriangles` route produced valid native coordinates and
+material values but dark live shading through the Blender connection. On the
+same house, camera and lighting, even forced-white materials remained dark;
+switching to `BlenderAddNode` displayed white walls and visible pool/grass maps.
+The native scene retains CW. An intermediate CCW change based on an incorrect
+handedness-only assertion is withdrawn. Readable images and correct coordinates
+alone do not establish correct live shading.
 
 The first Connect creates `My model_d5_textures` beside `My model.igz`, even if
 there are no textures yet. Readable source images are copied there under content
@@ -86,6 +97,14 @@ hash names; originals and old cache images are preserved. Save As or switching
 to a different path disconnects sync. Reconnect to create/reuse the companion
 folder beside the newly saved file. Runtime diagnostics live under
 `%LOCALAPPDATA%\IngeTrazo\d5_sync\`, outside the installed plugin folder.
+
+`ingetrazo-d5-materials.json` in that companion folder records base colors,
+roughness, metallic/specular settings, relative image references and the source
+asset lookup. It is replaced atomically after capture. Content hashes validate
+recovered images when the host's original texture cache disappears. Missing
+images fall back to face colors and appear in the material index warnings and
+sync status. Nested group paint resolves from the nearest painted container.
+Keep this folder beside the saved model when transferring the project.
 
 ## Verification and limits
 
@@ -105,10 +124,16 @@ checks before packaging. Live geometry creation, white-paint shading and orbit,
 pan, zoom and explicit camera resend were exercised against D5. Smooth normals
 survive native export; live curved-surface appearance has not been reviewed.
 
-The subsequent coordinate-frame correction passes all 27 portable checks and
-17 native-worker checks, including the native model/camera alignment regression.
-This establishes the corrected coordinate contract; visual acceptance with each
-recipient's model remains necessary.
+The coordinate, face-orientation and material-persistence corrections pass all
+32 portable checks and 20 native-worker checks. A read-only audit of the local
+house exported 4,025 objects, 142 materials and all 11 referenced texture images
+without changing its saved document. These checks establish the native export
+contract. The live house comparison also verified white walls and visible pool
+and grass textures with the Blender submission path under unchanged lighting.
+The installed plugin was then started from the IngeTrazo toolbar into a fresh
+D5 project: all 246,742 faces loaded, the house rendered normally, and orbiting
+in IngeTrazo moved the D5 camera to the matching view.
+Live visual acceptance with other recipients' models remains necessary.
 
 Remaining limits include transparency/glass, back-face materials, face-me
 figures, edited-group contexts, two-point camera shift, live orthographic visual

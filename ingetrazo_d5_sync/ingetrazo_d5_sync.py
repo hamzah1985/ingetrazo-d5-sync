@@ -4,6 +4,7 @@ import hashlib
 import json
 import math
 import os
+import re
 from pathlib import Path
 import tempfile
 
@@ -13,6 +14,46 @@ from .runtime import find_worker_python
 
 ROOT = Path(__file__).resolve().parent
 IDENTITY = [[1,0,0,0], [0,1,0,0], [0,0,1,0], [0,0,0,1]]
+MATERIAL_CACHE = 'ingetrazo-d5-materials.json'
+
+
+def read_material_cache(folder):
+    path = Path(folder)/MATERIAL_CACHE
+    if not path.exists():
+        return {'assets': {}}
+    if path.resolve().parent != Path(folder).resolve():
+        raise ValueError('The D5 material cache points outside the companion folder.')
+    record = json.loads(path.read_text(encoding='utf8'))
+    if record.get('generator') != 'IngeTrazo D5 Sync' or record.get('format') != 1:
+        raise ValueError('The D5 material cache has an unsupported format; it was not overwritten.')
+    if not isinstance(record.get('assets'), dict) or not all(
+            isinstance(k,str) and isinstance(v,str) for k,v in record['assets'].items()):
+        raise ValueError('The D5 material cache has an invalid asset index.')
+    return record
+
+
+def write_material_cache(folder, document_path, materials, assets, warnings):
+    folder = Path(folder).resolve()
+    portable = []
+    for material in sorted(materials, key=lambda item:item['id']):
+        item = dict(material)
+        if item.get('diffuse_map'):
+            image = Path(item['diffuse_map']).resolve()
+            if image.parent != folder:
+                raise ValueError('Cached material image is outside the companion folder.')
+            item['diffuse_map'] = image.name
+        portable.append(item)
+    record = {'generator':'IngeTrazo D5 Sync', 'format':1,
+              'document':Path(document_path).name, 'materials':portable,
+              'assets':assets, 'warnings':warnings}
+    with tempfile.NamedTemporaryFile(dir=str(folder), suffix='.json.tmp', delete=False) as out:
+        temporary = Path(out.name)
+        out.write(json.dumps(record, indent=2, ensure_ascii=False).encode('utf8'))
+    try:
+        os.replace(temporary, folder/MATERIAL_CACHE)
+    finally:
+        if temporary.exists():
+            temporary.unlink()
 
 
 def prepare_texture_folder(document_path):
@@ -29,15 +70,33 @@ def prepare_texture_folder(document_path):
     return folder
 
 
-def cache_texture(source_path, folder, document_path):
+def cache_texture(source_path, folder, document_path, assets=None):
     """Copy valid images only; content names avoid collisions and overwrites."""
     from core.texture import is_image_file
     source = Path(source_path)
     if not source.is_absolute():
         source = Path(document_path).resolve().parent / source
     source = source.resolve()
+    folder = Path(folder).resolve()
+    assets = read_material_cache(folder)['assets'] if assets is None else assets
+    source_key = os.path.normcase(str(source))
     if not is_image_file(source):
-        raise ValueError('Texture is missing or is not a readable image: ' + str(source))
+        cached = assets.get(source_key)
+        if cached is None:
+            matches = {value for key,value in assets.items()
+                       if Path(key).name.casefold() == source.name.casefold()}
+            cached = next(iter(matches)) if len(matches) == 1 else None
+        if cached is not None:
+            if not isinstance(cached, str) or not re.fullmatch(r'[0-9a-f]{64}\.[a-z0-9]+', cached):
+                raise ValueError('The cached texture index contains an invalid image name.')
+            target = (folder/cached).resolve()
+            if target.parent != folder:
+                raise ValueError('The cached texture points outside the companion folder.')
+            if is_image_file(target):
+                if hashlib.sha256(target.read_bytes()).hexdigest() != target.stem:
+                    raise ValueError('A cached texture does not match its content hash.')
+                return target
+        raise FileNotFoundError('Texture unavailable: ' + source.name)
     data = source.read_bytes()
     digest = hashlib.sha256(data).hexdigest()
     suffix = source.suffix.lower()
@@ -48,6 +107,7 @@ def cache_texture(source_path, folder, document_path):
             suffix = extension
             break
     target = folder / (digest + suffix)
+    assets[source_key] = target.name
     if target.exists():
         if target.read_bytes() != data:
             raise ValueError('An existing texture cache file has unexpected contents: ' + str(target))
@@ -97,6 +157,8 @@ def capture_scene(scene, document_path=None, texture_folder=None):
     materials = {}
     objects = []
     cached = {}
+    warnings = []
+    assets = read_material_cache(texture_folder)['assets'] if texture_folder is not None else {}
     smoother = SmoothNormals()
 
     def mesh_parts(mesh, path, name, matrix, paint, loose=False):
@@ -114,13 +176,18 @@ def capture_scene(scene, document_path=None, texture_folder=None):
                 if not document_path or texture_folder is None:
                     raise ValueError('Save the model and connect D5 Sync before sending textures.')
                 if texture_path not in cached:
-                    cached[texture_path] = cache_texture(texture_path, texture_folder, document_path)
-                diffuse_map = str(cached[texture_path])
-                # The host's own mesh exporter uses white for textured faces.
-                color = '#FFFFFF'
+                    try:
+                        cached[texture_path] = cache_texture(texture_path, texture_folder, document_path, assets)
+                    except FileNotFoundError as error:
+                        cached[texture_path] = None
+                        warnings.append(str(error) + '; using the face color.')
+                if cached[texture_path] is not None:
+                    diffuse_map = str(cached[texture_path])
+                    # The host's own mesh exporter uses white for textured faces.
+                    color = '#FFFFFF'
             mat_name = attrs.get('mat') or ('Default White' if not attrs.get('color') and not diffuse_map
                                             else 'Color ' + color)
-            identity = json.dumps([mat_name, color, str(texture_path or '')], sort_keys=True)
+            identity = json.dumps([mat_name, color, Path(diffuse_map).name if diffuse_map else ''], sort_keys=True)
             mid = hashlib.sha256(identity.encode('utf8')).hexdigest()[:24]
             materials[mid] = {'id': mid, 'name': mat_name, 'color': color,
                               'metallic': 0.0, 'specular': 0.5, 'roughness': 0.5}
@@ -156,7 +223,7 @@ def capture_scene(scene, document_path=None, texture_folder=None):
         paint = getattr(group, 'material', None) or top_paint
         mesh_parts(group.mesh, path, getattr(group, 'name', '') or 'Group', world, paint)
         for child in getattr(group, 'children', ()) or ():
-            group_parts(child, world, path, top_paint)
+            group_parts(child, world, path, paint)
 
     mesh_parts(scene.loose_mesh, 'loose', 'Loose geometry', None, None, loose=True)
     for group in scene.groups:
@@ -165,6 +232,9 @@ def capture_scene(scene, document_path=None, texture_folder=None):
     if texture_folder is not None:
         snapshot['texture_folder'] = str(Path(texture_folder).resolve())
         snapshot['document_path'] = str(Path(document_path).resolve())
+        write_material_cache(texture_folder, document_path, snapshot['materials'], assets, warnings)
+    if warnings:
+        snapshot['warnings'] = warnings
     return snapshot
 
 
@@ -185,7 +255,7 @@ class SyncController:
         self.timer.timeout.connect(self.capture)
         self.startup = QTimer(app.window)
         self.startup.setSingleShot(True)
-        self.startup.setInterval(45000)
+        self.startup.setInterval(180000)
         self.startup.timeout.connect(self.startup_timeout)
         self.buffer = ''
         self.busy = False
@@ -415,6 +485,7 @@ class SyncController:
         if not self.enabled or not self.ready or self.busy or self.pending is None:
             return
         serialized = json.dumps(self.pending, sort_keys=True, separators=(',', ':'))
+        self.inflight_warnings = self.pending.get('warnings', [])
         self.pending = None
         if serialized == self.acknowledged:
             return
@@ -459,7 +530,9 @@ class SyncController:
             elif result.get('op') == 'snapshot':
                 self.acknowledged = self.inflight
                 self.busy = False
-                self.status('Model synced to D5 Render.')
+                warnings = getattr(self, 'inflight_warnings', [])
+                self.status('Model synced to D5 Render.' if not warnings else
+                            'Model synced; %d texture(s) unavailable. See the companion material cache.' % len(warnings))
                 self.send_pending()
             elif result.get('op') == 'camera':
                 self.camera_inflight = False

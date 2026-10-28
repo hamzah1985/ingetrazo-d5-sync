@@ -38,8 +38,8 @@ def stable_id(kind, value):
 
 
 def transform_array(matrix):
-    # D5BeginNode applies the RightZUp scene conversion itself. Supply source
-    # axes here; pre-conjugating would apply the X/Y conversion twice.
+    # Source matrix with translation in centimetres. The Blender submission
+    # adapter below supplies its separate native matrix convention.
     a = [[float(v) for v in row] for row in matrix]
     if len(a) != 4 or any(len(row) != 4 for row in a):
         raise ValueError('Expected a 4x4 transform')
@@ -48,6 +48,14 @@ def transform_array(matrix):
     for i in range(3):
         a[i][3] *= 100.0
     return [a[r][c] for c in range(4) for r in range(4)]
+
+
+def blender_transform_array(matrix):
+    # BlenderAddNode keeps mesh positions in source axes. Its native transform
+    # conversion needs M @ S (swapped columns), yielding S @ M in the D5 file.
+    # The resulting world positions match the separately converted camera.
+    values = transform_array(matrix)
+    return values[4:8] + values[:4] + values[8:]
 
 
 def camera_values(camera):
@@ -121,9 +129,9 @@ def triangle_buffers(obj, stats=None):
         uvs = uv[triangles].astype(np.float32).ravel()
     else:
         uvs = np.zeros(count * 6, dtype=np.float32)
-    # MaxAddIndexTriangles also applies the session's RightZUp conversion.
-    # Keep source positions/normals together; camera_values is a different API
-    # which expects an explicitly converted D5 pose.
+    # Keep source positions and normals together. BlenderAddNode receives these
+    # arrays in metres, with a scale factor of 100 and its converted node frame.
+    # camera_values is a separate API requiring an explicitly converted D5 pose.
     return (coords.astype(np.float32).ravel(), normals, loops, loops.copy(),
             uvs, polygon_indices, material_indices)
 
@@ -186,7 +194,7 @@ class Bridge:
         if len({str(o['id']) for o in objects}) != len(objects):
             raise ValueError('Duplicate object IDs')
         stats = {'skipped_degenerate_triangles': 0}
-        prepared = [(o, triangle_buffers(o, stats), transform_array(o.get('transform', IDENTITY)))
+        prepared = [(o, triangle_buffers(o, stats), blender_transform_array(o.get('transform', IDENTITY)))
                     for o in objects]
         texture_folder = None
         if scene.get('texture_folder'):
@@ -251,12 +259,16 @@ class Bridge:
             d.D5DeleteNode(s, node)
             if buffers is not None:
                 mid = self.identifier('material', str(obj.get('material_id', '__default__')))
-                coords, normals, loops, vertex_ids, uvs, _, _ = buffers
-                d.D5BeginNode(s, node, transform, node, True)
-                d.MaxAddIndexTriangles(s, mid, len(coords)//3, (coords*100.).tolist(),
-                                       normals.tolist(), uvs.tolist(), len(vertex_ids),
-                                       vertex_ids.tolist(), d.XYZ)
-                d.D5EndNode(s)
+                coords, normals, loops, vertex_ids, uvs, polygon_indices, material_indices = buffers
+                # Use the connector's Blender submission path. The generic Max
+                # path exported valid arrays but rendered this linked house dark
+                # even with all materials white; the Blender path renders it normally.
+                # BlenderAddNode flips V internally; preserve the host's existing
+                # final D5 UV convention rather than inverting every texture.
+                blender_uvs = uvs.copy()
+                blender_uvs[1::2] = 1.0 - blender_uvs[1::2]
+                d.BlenderAddNode(s, node, node, transform, [mid], loops, vertex_ids,
+                                coords, normals, blender_uvs, polygon_indices, material_indices, 100., True)
             next_hashes[key] = digest
             changed += int(object_changed)
         removed = set(self.hashes) - seen

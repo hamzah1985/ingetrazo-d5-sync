@@ -26,8 +26,8 @@
     },
     {
       "path": "ingetrazo_d5_sync/README.md",
-      "bytes": 6400,
-      "sha256": "568dd5774d8c6b8550346b78c084a2242947ac75d7385401c36da0f3c8b5a3b8"
+      "bytes": 8155,
+      "sha256": "7dcc674152a205276386af3c99f96ba57c08de237f75c416ac52ce8971c51709"
     },
     {
       "path": "ingetrazo_d5_sync/__init__.py",
@@ -36,8 +36,8 @@
     },
     {
       "path": "ingetrazo_d5_sync/d5_bridge.py",
-      "bytes": 20043,
-      "sha256": "23e8276b62f3b80ac2b43140b4377f75a29dc0e9dd5e73e0ee469ed22a0534ef"
+      "bytes": 20847,
+      "sha256": "b5e2502cc6eda0eef9e3464e662ee3c98bcc391a8682458938ae2843488a7679"
     },
     {
       "path": "ingetrazo_d5_sync/icons/disconnect.svg",
@@ -61,13 +61,13 @@
     },
     {
       "path": "ingetrazo_d5_sync/ingetrazo_d5_sync.py",
-      "bytes": 24359,
-      "sha256": "d326aabc8b43d26e44e266a28c73f76b32844f9375ff7708eaab5980d59542c2"
+      "bytes": 28288,
+      "sha256": "967e70f46aef54db703121559e9dbd1b1bde06b77909d15946952a2bcc6b9929"
     },
     {
       "path": "ingetrazo_d5_sync/native_tests/test_d5_bridge.py",
-      "bytes": 14068,
-      "sha256": "946f40ceea061c4d5f63ce6b14e2ac9a3ff238f6378f16392355ae2b11de7a90"
+      "bytes": 19708,
+      "sha256": "7c90cf7f3bfe0dce128cd6b19da6b573aede8580df4b02176d747848e8d363ca"
     },
     {
       "path": "ingetrazo_d5_sync/runtime.py",
@@ -86,8 +86,8 @@
     },
     {
       "path": "review_tests/test_d5_sync.py",
-      "bytes": 20421,
-      "sha256": "6daafee8caa1bd6642f33709af111802f6df8d9ce58095dc1e93ec863bdbbc05"
+      "bytes": 24370,
+      "sha256": "7ae5a15bbf8dcba62ccb0324899ca31e979367a71ebde06d544155f6a895df6f"
     },
     {
       "path": "review_tests/test_d5_sync_conversion.py",

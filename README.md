@@ -26,6 +26,9 @@ official D5 or IngeTrazo integration.
 
 The first connection creates `<model-name>_d5_textures` beside the saved `.igz`
 file. Save As disconnects sync; reconnect to use the new model location.
+This folder holds content-named texture images and `ingetrazo-d5-materials.json`,
+which records colors, material settings and image references. Keep it beside
+the model when moving the saved project.
 Disconnect leaves D5 open. No D5 installer or vendor binaries are included.
 This is a source-only package, not an all-dependencies offline bundle.
 
@@ -45,6 +48,17 @@ axis conversion shared by the original prototype. After updating, reconnect in
 a new blank D5 project and use Sync Now. Native regression checks compare D5's
 actual exported model coordinates with the camera pose; input-array tests alone
 did not catch the original error.
+
+The dark-shading correction uses the connector's `BlenderAddNode` mesh API.
+A controlled live comparison of the same house, camera and lighting reproduced
+dark surfaces with the former generic Max API, including an all-white test;
+the Blender path displayed white walls and the pool/grass textures correctly.
+Native checks verify world coordinates, normals and texture orientation.
+The installed plugin was also verified from its IngeTrazo toolbar in a fresh D5
+project, including camera orbit. The native session uses CW; an intermediate
+CCW change was incorrect and is withdrawn. Texture copies and their material
+index persist beside the model; unavailable images use the face color
+and report a warning. Nested groups use their nearest inherited paint.
 
 Fork this repository, make a focused change and open a pull request against
 `main`. See [CONTRIBUTING.md](CONTRIBUTING.md) for the development setup and

@@ -20,7 +20,7 @@ $env:PYTHONUTF8 = '1'
 .venv/Scripts/python -m pytest review_tests -q
 ```
 
-Use Python 3.13 for the development environment. These 27 portable checks do not
+Use Python 3.13 for the development environment. These 32 portable checks do not
 need D5, Blender or a native D5 module. The CI workflow reproduces this setup.
 
 Native offline export checks need the matching Python ABI, NumPy and a separately
@@ -31,7 +31,10 @@ installed D5 LiveSync for Blender native module:
 ```
 
 Those checks export to temporary files and do not require a running D5 project.
-The 17 native checks include model/camera alignment against D5 mesh v11 output.
+The 20 native checks include model/camera alignment, reflected/nonuniform
+transforms, front-face winding and asymmetric texture UVs against D5 mesh v11
+output. Preserve the Blender mesh-submission path: native export validity alone
+did not catch the former generic API's black live shading.
 If a connector changes that file format, update the test parser explicitly;
 do not replace the native-output check with an input-array assertion.
 For live changes, use disposable models and report what was visually verified:
