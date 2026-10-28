@@ -1,0 +1,3 @@
+# Installer hashes must match both GitHub source ZIPs and local checkouts.
+* -text
+*.blend binary

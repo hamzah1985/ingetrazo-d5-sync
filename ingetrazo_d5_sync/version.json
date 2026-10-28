@@ -1,0 +1,8 @@
+{
+  "name": "D5 Sync",
+  "version": "0.1.0",
+  "build": 1,
+  "minimumIngeTrazo": "0.5.10",
+  "experimental": true,
+  "platforms": ["windows"]
+}

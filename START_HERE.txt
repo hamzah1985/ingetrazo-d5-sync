@@ -1,0 +1,66 @@
+IngeTrazo to D5 Sync - experimental review package 0.1.0
+=======================================================
+
+This ZIP contains our connector source, original SVG icons, an empty generated
+connection identity, tests, GPL license and a plugin installer. It contains no
+D5 installer, D5 native module, Blender installer or Python runtime. It is NOT
+the all-dependencies offline bundle previously discussed.
+
+REQUIREMENTS
+- Windows x64 and IngeTrazo 0.5.10 (tested).
+- D5 Render already installed. Nothing here installs or updates D5 Render.
+- D5 LiveSync for Blender obtained separately from its official publisher:
+  https://www.d5render.com/workflow/blender
+- A matching Python runtime with NumPy. The tested setup uses Blender 5.2.2's
+  Python 3.13 plus D5 LiveSync for Blender 1.0.0.0028. Blender stays closed
+  during sync. Ordinary Python 3.13 also loads the installed native module;
+  custom runtimes can be selected with INGETRAZO_D5_PYTHON before app startup.
+
+INSTALL THE CONNECTOR
+1. Extract this whole ZIP into a folder. Close IngeTrazo.
+2. Double-click Install.cmd. It installs only our plugin into your Windows
+   user plugins folder and backs up an existing copy under LocalAppData.
+   If PowerShell policy prevents running it, use the manual method below;
+   no security-policy changes are needed.
+3. Start IngeTrazo. If hidden, choose Extensions > D5 Sync: Show Toolbar.
+4. Open a test model and click the D5 icon. Unsaved models get Save As.
+5. Open a new blank project if D5 asks. Wait for the connection to be ready.
+
+MANUAL INSTALL
+Copy the ingetrazo_d5_sync folder to %APPDATA%\ingetrazo\plugins\ and restart
+IngeTrazo. The entry point must be:
+%APPDATA%\ingetrazo\plugins\ingetrazo_d5_sync\__init__.py
+Back up an existing folder before replacing its files.
+
+USE
+- D5 icon: connect. Arrows: sync now and restore the IngeTrazo camera.
+- Disconnect: stop updates while leaving D5 open.
+- Textures copy into <model-name>_d5_textures beside the saved .igz file.
+- After Save As changes the path, reconnect to use the new companion folder.
+- Closing IngeTrazo and removing its installed plugin folder uninstalls it;
+  this does not remove models, original textures or companion folders.
+
+REVIEW AND LIMITS
+This is an unofficial prototype for technical review. It does not establish
+permission to redistribute D5 components or support for this host from D5.
+The add-on's GPL notice, compiled module coverage and corresponding-source
+availability still need clarification before any public combined binary bundle.
+Do not treat this source review ZIP as clearance for that separate bundle.
+
+Live-tested: simple geometry, white-paint shading, orbit/pan/zoom and camera
+resend. Smooth normals survive native export. Glass/transparency, face-me
+figures, edited-group contexts, two-point shift, live orthographic appearance,
+arbitrary live texture mapping and large-model performance remain limited or
+unverified. See ingetrazo_d5_sync/README.md for details.
+
+REPRODUCE CHECKS
+From an IngeTrazo source checkout with its development requirements installed:
+  python -m pytest <extracted-folder>/review_tests -q
+Vendor-dependent offline export checks (matching Python + NumPy + add-on):
+  <matching-python> -m unittest discover -s <extracted-folder>/ingetrazo_d5_sync/native_tests -v
+These tests do not require D5 to be running. They do not certify all live behavior.
+
+CONTENTS.json lists every included file and its SHA-256. The adjacent .sha256
+file identifies this ZIP. No personal model, texture cache, account information
+or machine-specific acceptance log is included. Our files are GPL-3.0-or-later;
+D5 retains its own rights and this project is not affiliated with D5.

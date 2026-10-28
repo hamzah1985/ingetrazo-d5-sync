@@ -1,0 +1,103 @@
+{
+  "name": "IngeTrazo D5 Sync - source review package",
+  "version": "0.1.0",
+  "kind": "source-only-review",
+  "includes_vendor_binaries": false,
+  "files": [
+    {
+      "path": "Install.cmd",
+      "bytes": 156,
+      "sha256": "a8cc4e78aeb313bf03f21a64402898dbf25755b4e85483828be36ed504269434"
+    },
+    {
+      "path": "Install.ps1",
+      "bytes": 2952,
+      "sha256": "0702f8c8a8648bec08018f050b293e4e30dd8dc9772c0ebd802002232d7d78a2"
+    },
+    {
+      "path": "START_HERE.txt",
+      "bytes": 3687,
+      "sha256": "fdca2442f486d8d457fcb870f18bf8d9cfbd55eed9545f2d8ca507f91c3659c6"
+    },
+    {
+      "path": "ingetrazo_d5_sync/LICENSE",
+      "bytes": 35149,
+      "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+    },
+    {
+      "path": "ingetrazo_d5_sync/README.md",
+      "bytes": 5496,
+      "sha256": "d56aac04711601a94d6c3cd7973689bbe596f4231d9c40120ba1bfb0dcb4c8fe"
+    },
+    {
+      "path": "ingetrazo_d5_sync/__init__.py",
+      "bytes": 335,
+      "sha256": "21bdc6bc7d0ce088a4e9bccc1ecf63c2ef87adc306f3c084975f13c0e34a5497"
+    },
+    {
+      "path": "ingetrazo_d5_sync/d5_bridge.py",
+      "bytes": 19630,
+      "sha256": "29f425b3b724a27c8ffaebc9199c082d17173df51a42c70c8d3751ecf5175c07"
+    },
+    {
+      "path": "ingetrazo_d5_sync/icons/disconnect.svg",
+      "bytes": 232,
+      "sha256": "164505743f0104f24042cb8e29203726444c6174c57ec6bb0b8cf599c99360c9"
+    },
+    {
+      "path": "ingetrazo_d5_sync/icons/logo.svg",
+      "bytes": 373,
+      "sha256": "b0cb010d736a9afb0283cfd97ccfd10446d99be782f0f2ef8eb2f052d27db21a"
+    },
+    {
+      "path": "ingetrazo_d5_sync/icons/sync.svg",
+      "bytes": 256,
+      "sha256": "2e0f082835ff7595fa6478707b680259a90953003c9ab3f039cc10cfdeb1d951"
+    },
+    {
+      "path": "ingetrazo_d5_sync/ingetrazo-d5-probe.blend",
+      "bytes": 421422,
+      "sha256": "2603c779e8e9e856b7a9623b2c3c469391e4e631782f5e237884873d531f8af1"
+    },
+    {
+      "path": "ingetrazo_d5_sync/ingetrazo_d5_sync.py",
+      "bytes": 24359,
+      "sha256": "d326aabc8b43d26e44e266a28c73f76b32844f9375ff7708eaab5980d59542c2"
+    },
+    {
+      "path": "ingetrazo_d5_sync/native_tests/test_d5_bridge.py",
+      "bytes": 8879,
+      "sha256": "86a58f2691285cc5b495782f54274e6b6f8eab1af5693136c8644ecae02ddbf8"
+    },
+    {
+      "path": "ingetrazo_d5_sync/runtime.py",
+      "bytes": 3806,
+      "sha256": "c312d6c9df548c8273f76b0137ed9931901d2e1936d344760c7d650b5db90b5a"
+    },
+    {
+      "path": "ingetrazo_d5_sync/version.json",
+      "bytes": 144,
+      "sha256": "2e2d78631f6d9f7ca5e476c1ba573821d99e35aa5b2937333909e84298f114e6"
+    },
+    {
+      "path": "review_tests/conftest.py",
+      "bytes": 166,
+      "sha256": "2505ebf441077a74a90450b0e12a3ede782467df38651e745359fce6d828d6e3"
+    },
+    {
+      "path": "review_tests/test_d5_sync.py",
+      "bytes": 20421,
+      "sha256": "6daafee8caa1bd6642f33709af111802f6df8d9ce58095dc1e93ec863bdbbc05"
+    },
+    {
+      "path": "review_tests/test_d5_sync_conversion.py",
+      "bytes": 2885,
+      "sha256": "009b88fc4959243aa897e7205cc1d38c1c80cf7e04349c644f141d04b71e458f"
+    },
+    {
+      "path": "review_tests/test_d5_sync_runtime.py",
+      "bytes": 2401,
+      "sha256": "3096ee5885f3950767be578b38c70e0675a030180668e6f494c9fccc1d42d9c7"
+    }
+  ]
+}
