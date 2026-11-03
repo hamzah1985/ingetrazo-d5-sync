@@ -8,12 +8,12 @@ This is an independent, unofficial prototype, tested with IngeTrazo 0.5.10,
 D5 Render 3.1.1.0755 and D5 LiveSync for Blender 1.0.0.0028. It is not an
 official D5 or IngeTrazo integration.
 
-## Source model reference
+## Material sync example
 
-This IngeTrazo view shows the tennis court and its materials used as a sync reference.
-It shows the source model; it does not establish how the model appears in D5.
+The tennis court in IngeTrazo (left) and D5 Render (right), showing its green
+surfaces and court lines in both applications.
 
-![Tennis court model in IngeTrazo](docs/images/ingetrazo-tennis-court.png)
+![Tennis court in IngeTrazo and D5 Render](docs/images/ingetrazo-d5-court.jpg)
 
 ## Install
 
