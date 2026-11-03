@@ -70,7 +70,9 @@ discovery and controller lifecycle. Native offline checks need the separately
 installed D5 connector. Live geometry creation, default white shading, orbit,
 pan, zoom and camera resend were exercised during prototype development.
 
-Known gaps include glass/transparency, back-face materials, face-me figures,
+Explicit back-side colors and diffuse textures are exported with reversed geometry. Receiver appearance has not yet been visually verified.
+
+Known gaps include glass/transparency, face-me figures,
 edited-group contexts, two-point camera shift, live orthographic appearance,
 arbitrary live texture mapping and large-model performance. The private D5
 connector API may change. A passing unit suite does not certify live rendering.

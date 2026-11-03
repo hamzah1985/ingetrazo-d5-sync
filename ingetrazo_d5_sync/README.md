@@ -135,7 +135,9 @@ D5 project: all 246,742 faces loaded, the house rendered normally, and orbiting
 in IngeTrazo moved the D5 camera to the matching view.
 Live visual acceptance with other recipients' models remains necessary.
 
-Remaining limits include transparency/glass, back-face materials, face-me
+Explicit back-side colors and diffuse textures are exported with reversed geometry. Receiver appearance has not yet been visually verified.
+
+Remaining limits include transparency/glass, face-me
 figures, edited-group contexts, two-point camera shift, live orthographic visual
 acceptance, arbitrary live texture mapping and large-model performance. This
 package does not establish full parity with D5's official LiveSync plugins.
